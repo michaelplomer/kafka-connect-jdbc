@@ -28,6 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import io.confluent.connect.jdbc.sink.JdbcSinkConfig;
 
@@ -45,7 +46,7 @@ public class FieldsMetadata {
   ) {
     boolean fieldCountsMatch = (keyFieldNames.size() + nonKeyFieldNames.size() == allFields.size());
     boolean allFieldsContained = (allFields.keySet().containsAll(keyFieldNames)
-                   && allFields.keySet().containsAll(nonKeyFieldNames));
+                                  && allFields.keySet().containsAll(nonKeyFieldNames));
     if (!fieldCountsMatch || !allFieldsContained) {
       throw new IllegalArgumentException(String.format(
           "Validation fail -- keyFieldNames:%s nonKeyFieldNames:%s allFields:%s",
@@ -61,16 +62,16 @@ public class FieldsMetadata {
       final String tableName,
       final JdbcSinkConfig.PrimaryKeyMode pkMode,
       final List<String> configuredPkFields,
-      final Set<String> fieldsWhitelist,
-      final SchemaPair schemaPair
+      final SchemaPair schemaPair,
+      final Predicate<Field> shouldIgnore
   ) {
     return extract(
         tableName,
         pkMode,
         configuredPkFields,
-        fieldsWhitelist,
         schemaPair.keySchema,
-        schemaPair.valueSchema
+        schemaPair.valueSchema,
+        shouldIgnore
     );
   }
 
@@ -78,9 +79,9 @@ public class FieldsMetadata {
       final String tableName,
       final JdbcSinkConfig.PrimaryKeyMode pkMode,
       final List<String> configuredPkFields,
-      final Set<String> fieldsWhitelist,
       final Schema keySchema,
-      final Schema valueSchema
+      final Schema valueSchema,
+      final Predicate<Field> shouldIgnore
   ) {
     if (valueSchema != null && valueSchema.type() != Schema.Type.STRUCT) {
       throw new ConnectException("Value schema must be of type Struct");
@@ -88,6 +89,8 @@ public class FieldsMetadata {
 
     final Map<String, SinkRecordField> allFields = new HashMap<>();
 
+    // todo: could fail fast if not all PK fields exist in the table def
+    // (and auto evolution has been disabled...)
     final Set<String> keyFieldNames = new LinkedHashSet<>();
     switch (pkMode) {
       case NONE:
@@ -115,7 +118,7 @@ public class FieldsMetadata {
         if (keyFieldNames.contains(field.name())) {
           continue;
         }
-        if (!fieldsWhitelist.isEmpty() && !fieldsWhitelist.contains(field.name())) {
+        if (shouldIgnore.test(field)) {
           continue;
         }
 

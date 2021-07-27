@@ -15,6 +15,14 @@
 
 package io.confluent.connect.jdbc.sink;
 
+import io.confluent.connect.jdbc.dialect.DatabaseDialect;
+import io.confluent.connect.jdbc.dialect.DatabaseDialect.StatementBinder;
+import io.confluent.connect.jdbc.sink.metadata.FieldsMetadata;
+import io.confluent.connect.jdbc.sink.metadata.SchemaPair;
+import io.confluent.connect.jdbc.util.ColumnId;
+import io.confluent.connect.jdbc.util.TableDefinition;
+import io.confluent.connect.jdbc.util.TableId;
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -30,14 +38,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
-
-import io.confluent.connect.jdbc.dialect.DatabaseDialect;
-import io.confluent.connect.jdbc.dialect.DatabaseDialect.StatementBinder;
-import io.confluent.connect.jdbc.sink.metadata.FieldsMetadata;
-import io.confluent.connect.jdbc.sink.metadata.SchemaPair;
-import io.confluent.connect.jdbc.util.ColumnId;
-import io.confluent.connect.jdbc.util.TableId;
 
 import static io.confluent.connect.jdbc.sink.JdbcSinkConfig.InsertMode.INSERT;
 import static java.util.Objects.isNull;
@@ -113,13 +115,17 @@ public class BufferedRecords {
           record.keySchema(),
           record.valueSchema()
       );
+
       fieldsMetadata = FieldsMetadata.extract(
           tableId.tableName(),
           config.pkMode,
           config.pkFields,
-          config.fieldsWhitelist,
-          schemaPair
+          schemaPair,
+          new IgnoreFieldFilter(config.ignoreMissingFields
+              ? dbStructure.tableDefinition(connection, tableId)
+              : null)
       );
+
       dbStructure.createOrAmendIfNecessary(
           config,
           connection,
@@ -157,7 +163,7 @@ public class BufferedRecords {
         );
       }
     }
-    
+
     // set deletesInBatch if schema value is not null
     if (isNull(record.value()) && config.deleteEnabled) {
       deletesInBatch = true;
@@ -277,7 +283,7 @@ public class BufferedRecords {
         if (fieldsMetadata.keyFieldNames.isEmpty()) {
           throw new ConnectException(String.format(
               "Write to table '%s' in UPSERT mode requires key field names to be known, check the"
-                  + " primary key configuration",
+              + " primary key configuration",
               tableId
           ));
         }
@@ -340,5 +346,22 @@ public class BufferedRecords {
     return names.stream()
         .map(name -> new ColumnId(tableId, name))
         .collect(Collectors.toList());
+  }
+
+  private class IgnoreFieldFilter implements Predicate<Field> {
+
+    private final TableDefinition table;
+
+    private IgnoreFieldFilter(TableDefinition table) {
+      this.table = table;
+    }
+
+    @Override
+    public boolean test(Field field) {
+      // todo: additional exclusions based e.g. on type mismatch? Not sure we want to do that here
+      return !config.fieldsWhitelist.isEmpty() && !config.fieldsWhitelist.contains(field.name())
+             || table != null
+                && table.columnNames().stream().noneMatch(s -> field.name().equalsIgnoreCase(s));
+    }
   }
 }

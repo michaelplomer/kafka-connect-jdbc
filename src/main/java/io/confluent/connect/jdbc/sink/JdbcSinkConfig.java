@@ -199,6 +199,14 @@ public class JdbcSinkConfig extends AbstractConfig {
       + "    Field(s) from the record value are used, which must be a struct.";
   private static final String PK_MODE_DISPLAY = "Primary Key Mode";
 
+  public static final String FIELDS_IGNOREMISSING = "fields.ignore_missing";
+  private static final boolean FIELDS_IGNOREMISSING_DEFAULT = false;
+  private static final String FIELDS_IGNOREMISSING_DOC =
+      "If set to true, an implicit whitelist will be built from "
+      + "the existing column names of each table. Fields that do "
+      + "not exist in the target table, will be ignored.";
+  private static final String FIELDS_IGNOREMISSING_DISPLAY = "Ignore Missing Columns";
+
   public static final String FIELDS_WHITELIST = "fields.whitelist";
   private static final String FIELDS_WHITELIST_DEFAULT = "";
   private static final String FIELDS_WHITELIST_DOC =
@@ -261,169 +269,181 @@ public class JdbcSinkConfig extends AbstractConfig {
       EnumRecommender.in(TableType.values());
 
   public static final ConfigDef CONFIG_DEF = new ConfigDef()
-        // Connection
-        .define(
-            CONNECTION_URL,
-            ConfigDef.Type.STRING,
-            ConfigDef.NO_DEFAULT_VALUE,
-            ConfigDef.Importance.HIGH,
-            CONNECTION_URL_DOC,
-            CONNECTION_GROUP,
-            1,
-            ConfigDef.Width.LONG,
-            CONNECTION_URL_DISPLAY
-        )
-        .define(
-            CONNECTION_USER,
-            ConfigDef.Type.STRING,
-            null,
-            ConfigDef.Importance.HIGH,
-            CONNECTION_USER_DOC,
-            CONNECTION_GROUP,
-            2,
-            ConfigDef.Width.MEDIUM,
-            CONNECTION_USER_DISPLAY
-        )
-        .define(
-            CONNECTION_PASSWORD,
-            ConfigDef.Type.PASSWORD,
-            null,
-            ConfigDef.Importance.HIGH,
-            CONNECTION_PASSWORD_DOC,
-            CONNECTION_GROUP,
-            3,
-            ConfigDef.Width.MEDIUM,
-            CONNECTION_PASSWORD_DISPLAY
-        )
-        .define(
-            DIALECT_NAME_CONFIG,
-            ConfigDef.Type.STRING,
-            DIALECT_NAME_DEFAULT,
-            DatabaseDialectRecommender.INSTANCE,
-            ConfigDef.Importance.LOW,
-            DIALECT_NAME_DOC,
-            CONNECTION_GROUP,
-            4,
-            ConfigDef.Width.LONG,
-            DIALECT_NAME_DISPLAY,
-            DatabaseDialectRecommender.INSTANCE
-        )
-        .define(
-            CONNECTION_ATTEMPTS,
-            ConfigDef.Type.INT,
-            CONNECTION_ATTEMPTS_DEFAULT,
-            ConfigDef.Range.atLeast(1),
-            ConfigDef.Importance.LOW,
-            CONNECTION_ATTEMPTS_DOC,
-            CONNECTION_GROUP,
-            5,
-            ConfigDef.Width.SHORT,
-            CONNECTION_ATTEMPTS_DISPLAY
-        ).define(
-            CONNECTION_BACKOFF,
-            ConfigDef.Type.LONG,
-            CONNECTION_BACKOFF_DEFAULT,
-            ConfigDef.Importance.LOW,
-            CONNECTION_BACKOFF_DOC,
-            CONNECTION_GROUP,
-            6,
-            ConfigDef.Width.SHORT,
-            CONNECTION_BACKOFF_DISPLAY
-        )
-        // Writes
-        .define(
-            INSERT_MODE,
-            ConfigDef.Type.STRING,
-            INSERT_MODE_DEFAULT,
-            EnumValidator.in(InsertMode.values()),
-            ConfigDef.Importance.HIGH,
-            INSERT_MODE_DOC,
-            WRITES_GROUP,
-            1,
-            ConfigDef.Width.MEDIUM,
-            INSERT_MODE_DISPLAY
-        )
-        .define(
-            BATCH_SIZE,
-            ConfigDef.Type.INT,
-            BATCH_SIZE_DEFAULT,
-            NON_NEGATIVE_INT_VALIDATOR,
-            ConfigDef.Importance.MEDIUM,
-            BATCH_SIZE_DOC, WRITES_GROUP,
-            2,
-            ConfigDef.Width.SHORT,
-            BATCH_SIZE_DISPLAY
-        )
-        .define(
-            DELETE_ENABLED,
-            ConfigDef.Type.BOOLEAN,
-            DELETE_ENABLED_DEFAULT,
-            ConfigDef.Importance.MEDIUM,
-            DELETE_ENABLED_DOC, WRITES_GROUP,
-            3,
-            ConfigDef.Width.SHORT,
-            DELETE_ENABLED_DISPLAY,
-            DeleteEnabledRecommender.INSTANCE
-        )
-        .define(
-            TABLE_TYPES_CONFIG,
-            ConfigDef.Type.LIST,
-            TABLE_TYPES_DEFAULT,
-            TABLE_TYPES_RECOMMENDER,
-            ConfigDef.Importance.LOW,
-            TABLE_TYPES_DOC,
-            WRITES_GROUP,
-            4,
-            ConfigDef.Width.MEDIUM,
-            TABLE_TYPES_DISPLAY
-        )
-        // Data Mapping
-        .define(
-            TABLE_NAME_FORMAT,
-            ConfigDef.Type.STRING,
-            TABLE_NAME_FORMAT_DEFAULT,
-            new ConfigDef.NonEmptyString(),
-            ConfigDef.Importance.MEDIUM,
-            TABLE_NAME_FORMAT_DOC,
-            DATAMAPPING_GROUP,
-            1,
-            ConfigDef.Width.LONG,
-            TABLE_NAME_FORMAT_DISPLAY
-        )
-        .define(
-            PK_MODE,
-            ConfigDef.Type.STRING,
-            PK_MODE_DEFAULT,
-            EnumValidator.in(PrimaryKeyMode.values()),
-            ConfigDef.Importance.HIGH,
-            PK_MODE_DOC,
-            DATAMAPPING_GROUP,
-            2,
-            ConfigDef.Width.MEDIUM,
-            PK_MODE_DISPLAY,
-            PrimaryKeyModeRecommender.INSTANCE
-        )
-        .define(
-            PK_FIELDS,
-            ConfigDef.Type.LIST,
-            PK_FIELDS_DEFAULT,
-            ConfigDef.Importance.MEDIUM,
-            PK_FIELDS_DOC,
-            DATAMAPPING_GROUP,
-            3,
-            ConfigDef.Width.LONG, PK_FIELDS_DISPLAY
-        )
-        .define(
-            FIELDS_WHITELIST,
-            ConfigDef.Type.LIST,
-            FIELDS_WHITELIST_DEFAULT,
-            ConfigDef.Importance.MEDIUM,
-            FIELDS_WHITELIST_DOC,
-            DATAMAPPING_GROUP,
-            4,
-            ConfigDef.Width.LONG,
-            FIELDS_WHITELIST_DISPLAY
-        ).define(
+      // Connection
+      .define(
+          CONNECTION_URL,
+          ConfigDef.Type.STRING,
+          ConfigDef.NO_DEFAULT_VALUE,
+          ConfigDef.Importance.HIGH,
+          CONNECTION_URL_DOC,
+          CONNECTION_GROUP,
+          1,
+          ConfigDef.Width.LONG,
+          CONNECTION_URL_DISPLAY
+      )
+      .define(
+          CONNECTION_USER,
+          ConfigDef.Type.STRING,
+          null,
+          ConfigDef.Importance.HIGH,
+          CONNECTION_USER_DOC,
+          CONNECTION_GROUP,
+          2,
+          ConfigDef.Width.MEDIUM,
+          CONNECTION_USER_DISPLAY
+      )
+      .define(
+          CONNECTION_PASSWORD,
+          ConfigDef.Type.PASSWORD,
+          null,
+          ConfigDef.Importance.HIGH,
+          CONNECTION_PASSWORD_DOC,
+          CONNECTION_GROUP,
+          3,
+          ConfigDef.Width.MEDIUM,
+          CONNECTION_PASSWORD_DISPLAY
+      )
+      .define(
+          DIALECT_NAME_CONFIG,
+          ConfigDef.Type.STRING,
+          DIALECT_NAME_DEFAULT,
+          DatabaseDialectRecommender.INSTANCE,
+          ConfigDef.Importance.LOW,
+          DIALECT_NAME_DOC,
+          CONNECTION_GROUP,
+          4,
+          ConfigDef.Width.LONG,
+          DIALECT_NAME_DISPLAY,
+          DatabaseDialectRecommender.INSTANCE
+      )
+      .define(
+          CONNECTION_ATTEMPTS,
+          ConfigDef.Type.INT,
+          CONNECTION_ATTEMPTS_DEFAULT,
+          ConfigDef.Range.atLeast(1),
+          ConfigDef.Importance.LOW,
+          CONNECTION_ATTEMPTS_DOC,
+          CONNECTION_GROUP,
+          5,
+          ConfigDef.Width.SHORT,
+          CONNECTION_ATTEMPTS_DISPLAY
+      ).define(
+          CONNECTION_BACKOFF,
+          ConfigDef.Type.LONG,
+          CONNECTION_BACKOFF_DEFAULT,
+          ConfigDef.Importance.LOW,
+          CONNECTION_BACKOFF_DOC,
+          CONNECTION_GROUP,
+          6,
+          ConfigDef.Width.SHORT,
+          CONNECTION_BACKOFF_DISPLAY
+      )
+      // Writes
+      .define(
+          INSERT_MODE,
+          ConfigDef.Type.STRING,
+          INSERT_MODE_DEFAULT,
+          EnumValidator.in(InsertMode.values()),
+          ConfigDef.Importance.HIGH,
+          INSERT_MODE_DOC,
+          WRITES_GROUP,
+          1,
+          ConfigDef.Width.MEDIUM,
+          INSERT_MODE_DISPLAY
+      )
+      .define(
+          BATCH_SIZE,
+          ConfigDef.Type.INT,
+          BATCH_SIZE_DEFAULT,
+          NON_NEGATIVE_INT_VALIDATOR,
+          ConfigDef.Importance.MEDIUM,
+          BATCH_SIZE_DOC, WRITES_GROUP,
+          2,
+          ConfigDef.Width.SHORT,
+          BATCH_SIZE_DISPLAY
+      )
+      .define(
+          DELETE_ENABLED,
+          ConfigDef.Type.BOOLEAN,
+          DELETE_ENABLED_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          DELETE_ENABLED_DOC, WRITES_GROUP,
+          3,
+          ConfigDef.Width.SHORT,
+          DELETE_ENABLED_DISPLAY,
+          DeleteEnabledRecommender.INSTANCE
+      )
+      .define(
+          TABLE_TYPES_CONFIG,
+          ConfigDef.Type.LIST,
+          TABLE_TYPES_DEFAULT,
+          TABLE_TYPES_RECOMMENDER,
+          ConfigDef.Importance.LOW,
+          TABLE_TYPES_DOC,
+          WRITES_GROUP,
+          4,
+          ConfigDef.Width.MEDIUM,
+          TABLE_TYPES_DISPLAY
+      )
+      // Data Mapping
+      .define(
+          TABLE_NAME_FORMAT,
+          ConfigDef.Type.STRING,
+          TABLE_NAME_FORMAT_DEFAULT,
+          new ConfigDef.NonEmptyString(),
+          ConfigDef.Importance.MEDIUM,
+          TABLE_NAME_FORMAT_DOC,
+          DATAMAPPING_GROUP,
+          1,
+          ConfigDef.Width.LONG,
+          TABLE_NAME_FORMAT_DISPLAY
+      )
+      .define(
+          PK_MODE,
+          ConfigDef.Type.STRING,
+          PK_MODE_DEFAULT,
+          EnumValidator.in(PrimaryKeyMode.values()),
+          ConfigDef.Importance.HIGH,
+          PK_MODE_DOC,
+          DATAMAPPING_GROUP,
+          2,
+          ConfigDef.Width.MEDIUM,
+          PK_MODE_DISPLAY,
+          PrimaryKeyModeRecommender.INSTANCE
+      )
+      .define(
+          PK_FIELDS,
+          ConfigDef.Type.LIST,
+          PK_FIELDS_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          PK_FIELDS_DOC,
+          DATAMAPPING_GROUP,
+          3,
+          ConfigDef.Width.LONG, PK_FIELDS_DISPLAY
+      )
+      .define(
+          FIELDS_WHITELIST,
+          ConfigDef.Type.LIST,
+          FIELDS_WHITELIST_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          FIELDS_WHITELIST_DOC,
+          DATAMAPPING_GROUP,
+          4,
+          ConfigDef.Width.LONG,
+          FIELDS_WHITELIST_DISPLAY
+      )
+      .define(
+          FIELDS_IGNOREMISSING,
+          ConfigDef.Type.BOOLEAN,
+          FIELDS_IGNOREMISSING_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          FIELDS_IGNOREMISSING_DOC,
+          DATAMAPPING_GROUP,
+          5,
+          ConfigDef.Width.LONG,
+          FIELDS_IGNOREMISSING_DISPLAY
+      )
+      .define(
           DB_TIMEZONE_CONFIG,
           ConfigDef.Type.STRING,
           DB_TIMEZONE_DEFAULT,
@@ -431,67 +451,67 @@ public class JdbcSinkConfig extends AbstractConfig {
           ConfigDef.Importance.MEDIUM,
           DB_TIMEZONE_CONFIG_DOC,
           DATAMAPPING_GROUP,
-          5,
+          6,
           ConfigDef.Width.MEDIUM,
           DB_TIMEZONE_CONFIG_DISPLAY
-        )
-        // DDL
-        .define(
-            AUTO_CREATE,
-            ConfigDef.Type.BOOLEAN,
-            AUTO_CREATE_DEFAULT,
-            ConfigDef.Importance.MEDIUM,
-            AUTO_CREATE_DOC, DDL_GROUP,
-            1,
-            ConfigDef.Width.SHORT,
-            AUTO_CREATE_DISPLAY
-        )
-        .define(
-            AUTO_EVOLVE,
-            ConfigDef.Type.BOOLEAN,
-            AUTO_EVOLVE_DEFAULT,
-            ConfigDef.Importance.MEDIUM,
-            AUTO_EVOLVE_DOC, DDL_GROUP,
-            2,
-            ConfigDef.Width.SHORT,
-            AUTO_EVOLVE_DISPLAY
-        ).define(
-            QUOTE_SQL_IDENTIFIERS_CONFIG,
-            ConfigDef.Type.STRING,
-            QUOTE_SQL_IDENTIFIERS_DEFAULT,
-            ConfigDef.Importance.MEDIUM,
-            QUOTE_SQL_IDENTIFIERS_DOC,
-            DDL_GROUP,
-            3,
-            ConfigDef.Width.MEDIUM,
-            QUOTE_SQL_IDENTIFIERS_DISPLAY,
-            QUOTE_METHOD_RECOMMENDER
-        )
-        // Retries
-        .define(
-            MAX_RETRIES,
-            ConfigDef.Type.INT,
-            MAX_RETRIES_DEFAULT,
-            NON_NEGATIVE_INT_VALIDATOR,
-            ConfigDef.Importance.MEDIUM,
-            MAX_RETRIES_DOC,
-            RETRIES_GROUP,
-            1,
-            ConfigDef.Width.SHORT,
-            MAX_RETRIES_DISPLAY
-        )
-        .define(
-            RETRY_BACKOFF_MS,
-            ConfigDef.Type.INT,
-            RETRY_BACKOFF_MS_DEFAULT,
-            NON_NEGATIVE_INT_VALIDATOR,
-            ConfigDef.Importance.MEDIUM,
-            RETRY_BACKOFF_MS_DOC,
-            RETRIES_GROUP,
-            2,
-            ConfigDef.Width.SHORT,
-            RETRY_BACKOFF_MS_DISPLAY
-        );
+      )
+      // DDL
+      .define(
+          AUTO_CREATE,
+          ConfigDef.Type.BOOLEAN,
+          AUTO_CREATE_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          AUTO_CREATE_DOC, DDL_GROUP,
+          1,
+          ConfigDef.Width.SHORT,
+          AUTO_CREATE_DISPLAY
+      )
+      .define(
+          AUTO_EVOLVE,
+          ConfigDef.Type.BOOLEAN,
+          AUTO_EVOLVE_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          AUTO_EVOLVE_DOC, DDL_GROUP,
+          2,
+          ConfigDef.Width.SHORT,
+          AUTO_EVOLVE_DISPLAY
+      ).define(
+          QUOTE_SQL_IDENTIFIERS_CONFIG,
+          ConfigDef.Type.STRING,
+          QUOTE_SQL_IDENTIFIERS_DEFAULT,
+          ConfigDef.Importance.MEDIUM,
+          QUOTE_SQL_IDENTIFIERS_DOC,
+          DDL_GROUP,
+          3,
+          ConfigDef.Width.MEDIUM,
+          QUOTE_SQL_IDENTIFIERS_DISPLAY,
+          QUOTE_METHOD_RECOMMENDER
+      )
+      // Retries
+      .define(
+          MAX_RETRIES,
+          ConfigDef.Type.INT,
+          MAX_RETRIES_DEFAULT,
+          NON_NEGATIVE_INT_VALIDATOR,
+          ConfigDef.Importance.MEDIUM,
+          MAX_RETRIES_DOC,
+          RETRIES_GROUP,
+          1,
+          ConfigDef.Width.SHORT,
+          MAX_RETRIES_DISPLAY
+      )
+      .define(
+          RETRY_BACKOFF_MS,
+          ConfigDef.Type.INT,
+          RETRY_BACKOFF_MS_DEFAULT,
+          NON_NEGATIVE_INT_VALIDATOR,
+          ConfigDef.Importance.MEDIUM,
+          RETRY_BACKOFF_MS_DOC,
+          RETRIES_GROUP,
+          2,
+          ConfigDef.Width.SHORT,
+          RETRY_BACKOFF_MS_DISPLAY
+      );
 
   public final String connectorName;
   public final String connectionUrl;
@@ -510,6 +530,7 @@ public class JdbcSinkConfig extends AbstractConfig {
   public final PrimaryKeyMode pkMode;
   public final List<String> pkFields;
   public final Set<String> fieldsWhitelist;
+  public final Boolean ignoreMissingFields;
   public final String dialectName;
   public final TimeZone timeZone;
   public final EnumSet<TableType> tableTypes;
@@ -534,6 +555,7 @@ public class JdbcSinkConfig extends AbstractConfig {
     pkFields = getList(PK_FIELDS);
     dialectName = getString(DIALECT_NAME_CONFIG);
     fieldsWhitelist = new HashSet<>(getList(FIELDS_WHITELIST));
+    ignoreMissingFields = getBoolean(FIELDS_IGNOREMISSING);
     String dbTimeZone = getString(DB_TIMEZONE_CONFIG);
     timeZone = TimeZone.getTimeZone(ZoneId.of(dbTimeZone));
 

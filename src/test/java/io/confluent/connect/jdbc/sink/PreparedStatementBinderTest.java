@@ -117,7 +117,7 @@ public class PreparedStatementBinderTest {
 
     List<String> pkFields = Collections.singletonList("long");
 
-    FieldsMetadata fieldsMetadata = FieldsMetadata.extract("people", pkMode, pkFields, Collections.<String>emptySet(), schemaPair);
+    FieldsMetadata fieldsMetadata = FieldsMetadata.extract("people", pkMode, pkFields, schemaPair, field -> false);
 
     PreparedStatement statement = mock(PreparedStatement.class);
     TableId tabId = new TableId("ORCL", "ADMIN", "people");
@@ -231,7 +231,7 @@ public class PreparedStatementBinderTest {
 
       List<String> pkFields = Collections.singletonList("long");
 
-      FieldsMetadata fieldsMetadata = FieldsMetadata.extract("people", pkMode, pkFields, Collections.<String>emptySet(), schemaPair);
+      FieldsMetadata fieldsMetadata = FieldsMetadata.extract("people", pkMode, pkFields, schemaPair, field -> false);
 
       PreparedStatement statement = mock(PreparedStatement.class);
       TableId tabId = new TableId("ORCL", "ADMIN", "people");
@@ -281,8 +281,7 @@ public class PreparedStatementBinderTest {
 
       List<String> pkFields = Collections.singletonList("long");
 
-      FieldsMetadata fieldsMetadata = FieldsMetadata.extract("people", pkMode, pkFields,
-              Collections.<String>emptySet(), schemaPair);
+      FieldsMetadata fieldsMetadata = FieldsMetadata.extract("people", pkMode, pkFields, schemaPair, field -> false);
 
       PreparedStatement statement = mock(PreparedStatement.class);
       TableId tabId = new TableId("ORCL", "ADMIN", "people");
